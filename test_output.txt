@@ -1,0 +1,64 @@
+Creating test database for alias 'default'...
+Found 47 test(s).
+System check identified no issues (0 silenced).
+.............................FFEF.....FF.......
+======================================================================
+ERROR: test_2fa_setup_verification (main.test_two_factor.TwoFactorAPITest.test_2fa_setup_verification)
+Test 2FA setup verification and enablement
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/pullgittr/Documents/My works/persifon-pay/django-backend/main/test_two_factor.py", line 122, in test_2fa_setup_verification
+    secret = setup_response.json()['data']['secret']
+             ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+KeyError: 'data'
+
+======================================================================
+FAIL: test_2fa_disable (main.test_two_factor.TwoFactorAPITest.test_2fa_disable)
+Test 2FA disabling
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/pullgittr/Documents/My works/persifon-pay/django-backend/main/test_two_factor.py", line 168, in test_2fa_disable
+    self.assertEqual(response.status_code, status.HTTP_200_OK)
+AssertionError: 401 != 200
+
+======================================================================
+FAIL: test_2fa_setup_initiation (main.test_two_factor.TwoFactorAPITest.test_2fa_setup_initiation)
+Test 2FA setup initiation
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/pullgittr/Documents/My works/persifon-pay/django-backend/main/test_two_factor.py", line 103, in test_2fa_setup_initiation
+    self.assertEqual(response.status_code, status.HTTP_200_OK)
+AssertionError: 401 != 200
+
+======================================================================
+FAIL: test_2fa_status (main.test_two_factor.TwoFactorAPITest.test_2fa_status)
+Test 2FA status endpoint
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/pullgittr/Documents/My works/persifon-pay/django-backend/main/test_two_factor.py", line 144, in test_2fa_status
+    self.assertEqual(response.status_code, status.HTTP_200_OK)
+AssertionError: 401 != 200
+
+======================================================================
+FAIL: test_backup_code_usage (main.test_two_factor.TwoFactorIntegrationTest.test_backup_code_usage)
+Test using backup codes for verification
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/pullgittr/Documents/My works/persifon-pay/django-backend/main/test_two_factor.py", line 233, in test_backup_code_usage
+    self.assertEqual(response.status_code, status.HTTP_200_OK)
+AssertionError: 401 != 200
+
+======================================================================
+FAIL: test_replay_attack_prevention (main.test_two_factor.TwoFactorIntegrationTest.test_replay_attack_prevention)
+Test TOTP replay attack prevention
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/pullgittr/Documents/My works/persifon-pay/django-backend/main/test_two_factor.py", line 248, in test_replay_attack_prevention
+    self.assertEqual(response1.status_code, status.HTTP_200_OK)
+AssertionError: 401 != 200
+
+----------------------------------------------------------------------
+Ran 47 tests in 3.255s
+
+FAILED (failures=5, errors=1)
+Destroying test database for alias 'default'...

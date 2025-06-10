@@ -1,0 +1,92 @@
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,minimum-scale=1,initial-scale=1,user-scalable=yes">
+    <meta name="theme-color" content="#f8ecde">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined&display=swap">
+    <style>
+        @font-face {
+            font-family: 'Google Sans';
+            font-style: normal;
+            font-weight: 400;
+            font-display: swap;
+            src: url(/fonts/google-sans/regular.woff2) format('woff2');
+            unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+        }
+
+        :root {
+            font-family: 'Google Sans', Roboto, system-ui;
+            --md-sys-color-primary: olive;
+            --md-sys-color-secondary: tomato;
+            --md-ref-typeface-brand: 'Open Sans';
+            --md-ref-typeface-plain: system-ui;
+            --md-sys-color-surface: #FEF7FF;
+            --md-sys-color-on-surface: #000;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--md-ref-typeface-plain);
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+        }
+
+        h2.md-typescale-display-medium {
+            font-size: 2rem;
+            font-weight: 500;
+        }
+
+        md-list-item {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background-color: var(--md-sys-color-surface);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+        }
+
+        md-list-item h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+
+        md-list-item h4 {
+            margin: 0.5rem 0;
+            font-size: 0.875rem;
+            font-weight: 400;
+            color: var(--md-sys-color-secondary);
+        }
+
+        md-outlined-button {
+            --md-sys-color-outline: var(--md-sys-color-secondary);
+            --md-sys-color-primary: var(--md-sys-color-secondary);
+        }
+    </style>
+    
+    <script type="importmap">
+      {
+        "imports": {
+          "@material/web/": "https://esm.run/@material/web/"
+        }
+      }
+    </script>
+    <script type="module">
+      import '@material/web/all.js';
+      import {styles as typescaleStyles} from '@material/web/typography/md-typescale-styles.js';
+
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+    </script>
+</head>
+
+{% block page_title %}
+<top-app-bar slot="top-app-bar" baseuri="/">
+    <h2 class="md-typescale-display-medium">Persifon</h2>
+</top-app-bar>
+{% endblock page_title %}
+
+{% block page_content %}
+    {% block posts %}
+        <h1>Tets</h1>
+    {% endblock posts %}
+{% endblock page_content %}

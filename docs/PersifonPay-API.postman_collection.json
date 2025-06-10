@@ -1,0 +1,580 @@
+{
+  "info": {
+    "name": "PersifonPay API",
+    "description": "Complete API collection for PersifonPay payment system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "persifon-pay-api-collection",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "account_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transaction_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "recurring_payment_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login - Obtain Tokens",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', response.access);",
+                  "    pm.collectionVariables.set('refresh_token', response.refresh);",
+                  "    pm.test('Tokens received successfully', () => {",
+                  "        pm.expect(response.access).to.exist;",
+                  "        pm.expect(response.refresh).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"your_username\",\n    \"password\": \"your_password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/token/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token", ""]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', response.access);",
+                  "    pm.test('Token refreshed successfully', () => {",
+                  "        pm.expect(response.access).to.exist;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/token/refresh/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token", "refresh", ""]
+            }
+          }
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{access_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/token/verify/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "token", "verify", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('user_id', response.id);",
+                  "    if (response.accounts && response.accounts.length > 0) {",
+                  "        pm.collectionVariables.set('account_id', response.accounts[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profile/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profile", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"first_name\": \"John\",\n    \"family_name\": \"Smith\",\n    \"last_name\": \"Doe\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/profile/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profile", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "List Accounts",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.length > 0) {",
+                  "        pm.collectionVariables.set('account_id', response[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/account/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "account", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Account",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('account_id', response.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"My Test Account\",\n    \"balance\": 1000.00\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/account/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "account", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Account Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/account/{{account_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "account", "{{account_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Account",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"account_id\": \"{{account_id}}\",\n    \"name\": \"Updated Account Name\",\n    \"balance\": 1500.00\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/account/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "account", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"account_id\": \"{{account_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/account/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "account", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transactions",
+      "item": [
+        {
+          "name": "Get Account Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transactions/{{account_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transactions", "{{account_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Transaction",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('transaction_id', response.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"withdraw_account\": \"{{account_id}}\",\n    \"credit_account\": \"REPLACE_WITH_DESTINATION_ACCOUNT_ID\",\n    \"amount\": 100.00,\n    \"message\": \"Test transaction\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/transaction/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transaction", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Transaction Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/transaction/{{transaction_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "transaction", "{{transaction_id}}", ""]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Recurring Payments",
+      "item": [
+        {
+          "name": "List Recurring Payments",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.length > 0) {",
+                  "        pm.collectionVariables.set('recurring_payment_id', response[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", ""]
+            }
+          }
+        },
+        {
+          "name": "Create Recurring Payment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('recurring_payment_id', response.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"withdraw_account\": \"{{account_id}}\",\n    \"credit_account\": \"REPLACE_WITH_DESTINATION_ACCOUNT_ID\",\n    \"amount\": 50.00,\n    \"frequency\": \"MONTHLY\",\n    \"start_date\": \"2025-06-03\",\n    \"end_date\": \"2025-12-31\",\n    \"max_payments\": 6,\n    \"description\": \"Monthly subscription payment\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", ""]
+            }
+          }
+        },
+        {
+          "name": "Get Recurring Payment Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/{{recurring_payment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", "{{recurring_payment_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Update Recurring Payment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 75.00,\n    \"description\": \"Updated monthly payment\",\n    \"max_payments\": 12\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/{{recurring_payment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", "{{recurring_payment_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Pause Recurring Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"action\": \"pause\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/{{recurring_payment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", "{{recurring_payment_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Resume Recurring Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"action\": \"resume\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/{{recurring_payment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", "{{recurring_payment_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Cancel Recurring Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"action\": \"cancel\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/{{recurring_payment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", "{{recurring_payment_id}}", ""]
+            }
+          }
+        },
+        {
+          "name": "Delete Recurring Payment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/recurring-payments/{{recurring_payment_id}}/",
+              "host": ["{{base_url}}"],
+              "path": ["api", "recurring-payments", "{{recurring_payment_id}}", ""]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

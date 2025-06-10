@@ -1,0 +1,956 @@
+openapi: 3.0.3
+info:
+  title: PersifonPay API
+  description: |
+    Django REST API backend for PersifonPay, a payment processing system with support for 
+    regular transactions and recurring payments. The system uses JWT authentication and 
+    follows RESTful design principles.
+    
+    ## Features
+    - JWT-based authentication
+    - Account management with balance tracking
+    - Transaction processing with atomic operations
+    - Recurring payment scheduling and management
+    - User profile management
+    
+    ## Authentication
+    All authenticated endpoints require a JWT token in the Authorization header:
+    ```
+    Authorization: Bearer <your_jwt_token>
+    ```
+  version: 1.0.0
+  contact:
+    name: PersifonPay API Support
+    email: support@persifon.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Authentication
+    description: JWT token management
+  - name: Profile
+    description: User profile management
+  - name: Accounts
+    description: Account management operations
+  - name: Transactions
+    description: Transaction management
+  - name: Recurring Payments
+    description: Recurring payment scheduling and management
+
+paths:
+  /api/token/:
+    post:
+      tags:
+        - Authentication
+      summary: Obtain JWT tokens
+      description: Authenticate user and obtain access and refresh tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "user@example.com"
+                password:
+                  type: string
+                  format: password
+                  example: "password123"
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+                    description: JWT access token
+                  refresh:
+                    type: string
+                    description: JWT refresh token
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/token/refresh/:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get a new access token using the refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh
+              properties:
+                refresh:
+                  type: string
+                  description: JWT refresh token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access:
+                    type: string
+                    description: New JWT access token
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/token/verify/:
+    post:
+      tags:
+        - Authentication
+      summary: Verify token validity
+      description: Verify if a JWT token is valid and not expired
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: JWT token to verify
+      responses:
+        '200':
+          description: Token is valid
+        '401':
+          description: Token is invalid or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/profile/:
+    get:
+      tags:
+        - Profile
+      summary: Get user profile
+      description: Retrieve current user's profile information including associated accounts
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+    post:
+      tags:
+        - Profile
+      summary: Update user profile
+      description: Update current user's profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name:
+                  type: string
+                  example: "John"
+                family_name:
+                  type: string
+                  example: "Smith"
+                last_name:
+                  type: string
+                  example: "Doe"
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ok"
+                  profile:
+                    $ref: '#/components/schemas/ProfileUpdate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/account/:
+    get:
+      tags:
+        - Accounts
+      summary: List user accounts
+      description: Retrieve all accounts associated with the current user
+      responses:
+        '200':
+          description: Accounts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Accounts
+      summary: Create account
+      description: Create a new account for the current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: "My Checking Account"
+                balance:
+                  type: number
+                  format: float
+                  default: 0.0
+                  example: 1000.00
+      responses:
+        '201':
+          description: Account created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCreate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - Accounts
+      summary: Update account
+      description: Update account details (user must have access)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - account_id
+              properties:
+                account_id:
+                  type: string
+                  format: uuid
+                name:
+                  type: string
+                balance:
+                  type: number
+                  format: float
+      responses:
+        '200':
+          description: Account updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Account updated successfully"
+                  account:
+                    $ref: '#/components/schemas/Account'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+    delete:
+      tags:
+        - Accounts
+      summary: Delete account
+      description: Delete an account (user must have access)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - account_id
+              properties:
+                account_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Account deleted successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/account/{account_id}/:
+    get:
+      tags:
+        - Accounts
+      summary: Get account details
+      description: Retrieve details of a specific account
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account ID
+      responses:
+        '200':
+          description: Account details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/transactions/{account_id}/:
+    get:
+      tags:
+        - Transactions
+      summary: Get account transactions
+      description: Retrieve transaction history for a specific account
+      parameters:
+        - name: account_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Account ID
+      responses:
+        '200':
+          description: Transactions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/transaction/:
+    post:
+      tags:
+        - Transactions
+      summary: Create transaction
+      description: Create a new transaction between accounts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - withdraw_account
+                - credit_account
+                - amount
+                - message
+              properties:
+                withdraw_account:
+                  type: string
+                  format: uuid
+                  description: Source account ID
+                credit_account:
+                  type: string
+                  format: uuid
+                  description: Destination account ID
+                amount:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                  example: 100.00
+                message:
+                  type: string
+                  example: "Payment for services"
+      responses:
+        '201':
+          description: Transaction created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/transaction/{transaction_id}/:
+    get:
+      tags:
+        - Transactions
+      summary: Get transaction details
+      description: Retrieve details of a specific transaction
+      parameters:
+        - name: transaction_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Transaction ID
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/recurring-payments/:
+    get:
+      tags:
+        - Recurring Payments
+      summary: List recurring payments
+      description: Retrieve all recurring payments for the current user
+      responses:
+        '200':
+          description: Recurring payments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecurringPayment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Recurring Payments
+      summary: Create recurring payment
+      description: Create a new recurring payment schedule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - withdraw_account
+                - credit_account
+                - amount
+                - frequency
+                - start_date
+                - description
+              properties:
+                withdraw_account:
+                  type: string
+                  format: uuid
+                  description: Source account ID
+                credit_account:
+                  type: string
+                  format: uuid
+                  description: Destination account ID
+                amount:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                  example: 100.00
+                frequency:
+                  type: string
+                  enum: [DAILY, WEEKLY, MONTHLY, YEARLY]
+                  example: "MONTHLY"
+                start_date:
+                  type: string
+                  format: date
+                  example: "2025-06-03"
+                end_date:
+                  type: string
+                  format: date
+                  nullable: true
+                  example: "2025-12-31"
+                max_payments:
+                  type: integer
+                  minimum: 1
+                  nullable: true
+                  example: 12
+                description:
+                  type: string
+                  example: "Monthly subscription payment"
+      responses:
+        '201':
+          description: Recurring payment created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+                    example: "Recurring payment created successfully"
+                  recurring_payment:
+                    $ref: '#/components/schemas/RecurringPayment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/recurring-payments/{payment_id}/:
+    get:
+      tags:
+        - Recurring Payments
+      summary: Get recurring payment details
+      description: Retrieve details of a specific recurring payment
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Recurring payment ID
+      responses:
+        '200':
+          description: Recurring payment details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecurringPayment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Recurring Payments
+      summary: Update recurring payment
+      description: Update a recurring payment (amount, end date, max payments, description)
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Recurring payment ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  format: float
+                  minimum: 0.01
+                end_date:
+                  type: string
+                  format: date
+                  nullable: true
+                max_payments:
+                  type: integer
+                  minimum: 1
+                  nullable: true
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Recurring payment updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Recurring payment updated successfully"
+                  recurring_payment:
+                    $ref: '#/components/schemas/RecurringPayment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags:
+        - Recurring Payments
+      summary: Control recurring payment
+      description: Pause, resume, or cancel a recurring payment
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Recurring payment ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [pause, resume, cancel]
+                  example: "pause"
+      responses:
+        '200':
+          description: Action completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Recurring payment paused successfully"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Recurring Payments
+      summary: Delete recurring payment
+      description: Delete a recurring payment permanently
+      parameters:
+        - name: payment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Recurring payment ID
+      responses:
+        '200':
+          description: Recurring payment deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Recurring payment deleted successfully"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        detail:
+          type: string
+          description: Detailed error information
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User ID
+        username:
+          type: string
+          description: Username
+        first_name:
+          type: string
+          description: First name
+        family_name:
+          type: string
+          description: Family name
+        last_name:
+          type: string
+          description: Last name
+        email:
+          type: string
+          format: email
+          description: Email address
+        is_active:
+          type: boolean
+          description: Account status
+        accounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+          description: Associated accounts
+
+    ProfileUpdate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        first_name:
+          type: string
+        family_name:
+          type: string
+        last_name:
+          type: string
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Account ID
+        name:
+          type: string
+          description: Account name
+        balance:
+          type: number
+          format: float
+          description: Current balance
+        public_key:
+          type: string
+          description: Public key for blockchain integration
+
+    AccountCreate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        balance:
+          type: number
+          format: float
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Transaction ID
+        withdraw_account:
+          type: string
+          format: uuid
+          description: Source account ID
+        credit_account:
+          type: string
+          format: uuid
+          description: Destination account ID
+        amount:
+          type: number
+          format: float
+          description: Transaction amount
+        message:
+          type: string
+          description: Transaction description
+        date:
+          type: string
+          format: date
+          description: Transaction date
+
+    RecurringPayment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Recurring payment ID
+        withdraw_account:
+          type: string
+          format: uuid
+          description: Source account ID
+        credit_account:
+          type: string
+          format: uuid
+          description: Destination account ID
+        amount:
+          type: number
+          format: float
+          description: Payment amount
+        frequency:
+          type: string
+          enum: [DAILY, WEEKLY, MONTHLY, YEARLY]
+          description: Payment frequency
+        status:
+          type: string
+          enum: [ACTIVE, PAUSED, CANCELLED, COMPLETED]
+          description: Payment status
+        start_date:
+          type: string
+          format: date
+          description: First payment date
+        end_date:
+          type: string
+          format: date
+          nullable: true
+          description: Optional last payment date
+        next_payment_date:
+          type: string
+          format: date
+          description: Next scheduled payment date
+        payment_count:
+          type: integer
+          description: Number of payments processed
+        max_payments:
+          type: integer
+          nullable: true
+          description: Optional maximum payment limit
+        description:
+          type: string
+          description: Payment description
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Missing required field: name"
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            detail: "Given token not valid for any token type"
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "You do not have access to this account"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Account not found"
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Internal server error"

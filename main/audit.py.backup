@@ -1,0 +1,494 @@
+"""
+Audit logging utilities for PersifonPay financial transactions.
+"""
+
+import json
+
+
+class AuditLogger:
+    """
+    Utility class for creating audit log entries.
+    """
+    
+    @staticmethod
+    def log_authentication(user, action, request=None, success=True, error_message=""):
+        """
+        Log authentication events (login, logout, token refresh).
+        """
+        return AuditLogger._create_log(
+            user=user,
+            action=action,
+            category='AUTH',
+            severity='HIGH' if not success else 'MEDIUM',
+            description=f"User {action.lower()} {'successful' if success else 'failed'}",
+            request=request,
+            success=success,
+            error_message=error_message
+        )
+    
+    @staticmethod
+    def log_transaction(user, transaction, action='CREATE', request=None, success=True, error_message=""):
+        """
+        Log transaction events.
+        """
+        try:
+            description = f"Transaction {action.lower()}: {transaction.amount} from {transaction.withdraw_account.name} to {transaction.credit_account.name}"
+            
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='TRANSACTION',
+                severity='HIGH',
+                description=description,
+                content_object_info={
+                    'model': 'Transaction',
+                    'id': str(transaction.id),
+                    'amount': str(transaction.amount),
+                    'withdraw_account': str(transaction.withdraw_account.id),
+                    'credit_account': str(transaction.credit_account.id),
+                    'description': transaction.message,
+                },
+                request=request,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            # Fallback logging if transaction object is incomplete
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='TRANSACTION',
+                severity='HIGH',
+                description=f"Transaction {action.lower()} - Error: {str(e)}",
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+    
+    @staticmethod
+    def log_account_operation(user, account, action, request=None, old_balance=None, new_balance=None, success=True, error_message=""):
+        """
+        Log account operations (create, update, balance changes).
+        """
+        try:
+            description = f"Account {action.lower()}: {account.name}"
+            
+            metadata = {'name': account.name, 'balance': str(account.balance)}
+            
+            if old_balance is not None and new_balance is not None:
+                metadata['old_balance'] = str(old_balance)
+                metadata['new_balance'] = str(new_balance)
+                description += f" (Balance: {old_balance} -> {new_balance})"
+            
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='ACCOUNT',
+                severity='MEDIUM',
+                description=description,
+                content_object_info={
+                    'model': 'Account',
+                    'id': str(account.id),
+                    **metadata
+                },
+                request=request,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='ACCOUNT',
+                severity='MEDIUM',
+                description=f"Account {action.lower()} - Error: {str(e)}",
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+    
+    @staticmethod
+    def log_recurring_payment(user, recurring_payment, action, request=None, success=True, error_message=""):
+        """
+        Log recurring payment operations.
+        """
+        try:
+            description = f"Recurring payment {action.lower()}: {recurring_payment.amount} every {recurring_payment.frequency}"
+            
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='RECURRING',
+                severity='MEDIUM',
+                description=description,
+                content_object_info={
+                    'model': 'RecurringPayment',
+                    'id': str(recurring_payment.id),
+                    'amount': str(recurring_payment.amount),
+                    'frequency': recurring_payment.frequency,
+                    'status': recurring_payment.status,
+                    'from_account': str(recurring_payment.withdraw_account.id),
+                    'to_account': str(recurring_payment.credit_account.id),
+                },
+                request=request,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='RECURRING',
+                severity='MEDIUM',
+                description=f"Recurring payment {action.lower()} - Error: {str(e)}",
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+    
+    @staticmethod
+    def log_security_event(user, action, description, request=None, severity='HIGH', metadata=None):
+        """
+        Log security-related events.
+        """
+        return AuditLogger._create_log(
+            user=user,
+            action=action,
+            category='SECURITY',
+            severity=severity,
+            description=description,
+            metadata=metadata or {},
+            request=request,
+            success=True
+        )
+    
+    @staticmethod
+    def log_failed_attempt(action, description, request=None, error_message="", metadata=None):
+        """
+        Log failed operation attempts.
+        """
+        return AuditLogger._create_log(
+            user=None,
+            action=action,
+            category='SECURITY',
+            severity='HIGH',
+            description=f"Failed attempt: {description}",
+            metadata=metadata or {},
+            request=request,
+            success=False,
+            error_message=error_message
+        )
+    
+    @staticmethod
+    def _create_log(user=None, action='VIEW', category='SYSTEM', severity='MEDIUM',
+                   description='', content_object_info=None, metadata=None, 
+                   request=None, success=True, error_message=""):
+        """
+        Internal method to create audit log entries.
+        """
+        try:
+            # Import here to avoid circular imports
+            from .models import AuditLog
+            
+            # Extract request information
+            ip_address = None
+            user_agent = ""
+            request_method = ""
+            request_path = ""
+            
+            if request:
+                ip_address = AuditLogger._get_client_ip(request)
+                user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]  # Limit length
+                request_method = request.method
+                request_path = request.path
+            
+            # Store username for audit trail even if user is deleted later
+            username = user.username if user else ""
+            
+            # Prepare object information
+            object_type = ""
+            object_id = ""
+            new_values = {}
+            
+            if content_object_info:
+                object_type = content_object_info.get('model', '')
+                object_id = content_object_info.get('id', '')
+                new_values = {k: v for k, v in content_object_info.items() if k not in ['model', 'id']}
+            
+            return AuditLog.objects.create(
+                user=user,
+                username=username,
+                action=action,
+                category=category,
+                severity=severity,
+                description=description,
+                object_type=object_type,
+                object_id=object_id,
+                old_values={},
+                new_values=new_values,
+                metadata=metadata or {},
+                ip_address=ip_address,
+                user_agent=user_agent,
+                request_method=request_method,
+                request_path=request_path,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            # If audit logging fails, don't break the main functionality
+            # Could log to system logs or just pass
+            print(f"Audit logging failed: {str(e)}")
+            return None
+    
+    @staticmethod
+    def _get_client_ip(request):
+        """
+        Extract client IP address from request.
+        """
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
+    """
+    Utility class for creating audit log entries.
+    """
+    
+    @staticmethod
+    def log_authentication(user, action, request=None, success=True, error_message=""):
+        """
+        Log authentication events (login, logout, token refresh).
+        """
+        return AuditLogger._create_log(
+            user=user,
+            action=action,
+            category='AUTH',
+            severity='HIGH' if not success else 'MEDIUM',
+            description=f"User {action.lower()} {'successful' if success else 'failed'}",
+            request=request,
+            success=success,
+            error_message=error_message
+        )
+    
+    @staticmethod
+    def log_transaction(user, transaction, action='CREATE', request=None, success=True, error_message=""):
+        """
+        Log transaction events.
+        """
+        try:
+            description = f"Transaction {action.lower()}: {transaction.amount} from {transaction.withdraw_account.name} to {transaction.credit_account.name}"
+            
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='TRANSACTION',
+                severity='HIGH',
+                description=description,
+                content_object_info={
+                    'model': 'Transaction',
+                    'id': str(transaction.id),
+                    'amount': str(transaction.amount),
+                    'withdraw_account': str(transaction.withdraw_account.id),
+                    'credit_account': str(transaction.credit_account.id),
+                    'description': transaction.message,
+                },
+                request=request,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            # Fallback logging if transaction object is incomplete
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='TRANSACTION',
+                severity='HIGH',
+                description=f"Transaction {action.lower()} - Error: {str(e)}",
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+    
+    @staticmethod
+    def log_account_operation(user, account, action, request=None, old_balance=None, new_balance=None, success=True, error_message=""):
+        """
+        Log account operations (create, update, balance changes).
+        """
+        try:
+            description = f"Account {action.lower()}: {account.name}"
+            
+            metadata = {'name': account.name, 'balance': str(account.balance)}
+            
+            if old_balance is not None and new_balance is not None:
+                metadata['old_balance'] = str(old_balance)
+                metadata['new_balance'] = str(new_balance)
+                description += f" (Balance: {old_balance} -> {new_balance})"
+            
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='ACCOUNT',
+                severity='MEDIUM',
+                description=description,
+                content_object_info={
+                    'model': 'Account',
+                    'id': str(account.id),
+                    **metadata
+                },
+                request=request,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='ACCOUNT',
+                severity='MEDIUM',
+                description=f"Account {action.lower()} - Error: {str(e)}",
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+    
+    @staticmethod
+    def log_recurring_payment(user, recurring_payment, action, request=None, success=True, error_message=""):
+        """
+        Log recurring payment operations.
+        """
+        try:
+            description = f"Recurring payment {action.lower()}: {recurring_payment.amount} every {recurring_payment.frequency}"
+            
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='RECURRING',
+                severity='MEDIUM',
+                description=description,
+                content_object_info={
+                    'model': 'RecurringPayment',
+                    'id': str(recurring_payment.id),
+                    'amount': str(recurring_payment.amount),
+                    'frequency': recurring_payment.frequency,
+                    'status': recurring_payment.status,
+                    'from_account': str(recurring_payment.withdraw_account.id),
+                    'to_account': str(recurring_payment.credit_account.id),
+                },
+                request=request,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            return AuditLogger._create_log(
+                user=user,
+                action=action,
+                category='RECURRING',
+                severity='MEDIUM',
+                description=f"Recurring payment {action.lower()} - Error: {str(e)}",
+                request=request,
+                success=False,
+                error_message=str(e)
+            )
+    
+    @staticmethod
+    def log_security_event(user, action, description, request=None, severity='HIGH', metadata=None):
+        """
+        Log security-related events.
+        """
+        return AuditLogger._create_log(
+            user=user,
+            action=action,
+            category='SECURITY',
+            severity=severity,
+            description=description,
+            metadata=metadata or {},
+            request=request,
+            success=True
+        )
+    
+    @staticmethod
+    def log_failed_attempt(action, description, request=None, error_message="", metadata=None):
+        """
+        Log failed operation attempts.
+        """
+        return AuditLogger._create_log(
+            user=None,
+            action=action,
+            category='SECURITY',
+            severity='HIGH',
+            description=f"Failed attempt: {description}",
+            metadata=metadata or {},
+            request=request,
+            success=False,
+            error_message=error_message
+        )
+    
+    @staticmethod
+    def _create_log(user=None, action='VIEW', category='SYSTEM', severity='MEDIUM',
+                   description='', content_object_info=None, metadata=None, 
+                   request=None, success=True, error_message=""):
+        """
+        Internal method to create audit log entries.
+        """
+        try:
+            # Import here to avoid circular imports
+            from .models import AuditLog
+            
+            # Extract request information
+            ip_address = None
+            user_agent = ""
+            request_method = ""
+            request_path = ""
+            
+            if request:
+                ip_address = AuditLogger._get_client_ip(request)
+                user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]  # Limit length
+                request_method = request.method
+                request_path = request.path
+            
+            # Store username for audit trail even if user is deleted later
+            username = user.username if user else ""
+            
+            # Prepare object information
+            object_type = ""
+            object_id = ""
+            new_values = {}
+            
+            if content_object_info:
+                object_type = content_object_info.get('model', '')
+                object_id = content_object_info.get('id', '')
+                new_values = {k: v for k, v in content_object_info.items() if k not in ['model', 'id']}
+            
+            return AuditLog.objects.create(
+                user=user,
+                username=username,
+                action=action,
+                category=category,
+                severity=severity,
+                description=description,
+                object_type=object_type,
+                object_id=object_id,
+                old_values={},
+                new_values=new_values,
+                metadata=metadata or {},
+                ip_address=ip_address,
+                user_agent=user_agent,
+                request_method=request_method,
+                request_path=request_path,
+                success=success,
+                error_message=error_message
+            )
+        except Exception as e:
+            # If audit logging fails, don't break the main functionality
+            # Could log to system logs or just pass
+            print(f"Audit logging failed: {str(e)}")
+            return None
+    
+    @staticmethod
+    def _get_client_ip(request):
+        """
+        Extract client IP address from request.
+        """
+        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+        if x_forwarded_for:
+            return x_forwarded_for.split(',')[0].strip()
+        return request.META.get('REMOTE_ADDR')
